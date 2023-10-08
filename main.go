@@ -23,9 +23,8 @@ func main() {
 		log.Fatal(err)
 		return
 	}
-
 	defer l.Close()
-
+	log.Println("TCP Blackhole Start: ", l.Addr())
 	go func() {
 		for {
 			c, err := l.Accept()
@@ -34,7 +33,11 @@ func main() {
 			}
 
 			go func(conn net.Conn) {
-				io.Copy(io.Discard, conn)
+				n, err := io.Copy(io.Discard, conn)
+				log.Printf(
+					"TCP Blackhole Receive From: %s Blackhole: %d, Error: %v",
+					conn.RemoteAddr(), n, err,
+				)
 				conn.Close()
 			}(c)
 		}
@@ -43,4 +46,6 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
+
+	log.Println("TCP Blackhole Shutdown.")
 }
