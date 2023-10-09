@@ -34,16 +34,20 @@ func main() {
 
 			go func(conn net.Conn) {
 				go func() {
-					f, err := os.Open("/dev/zero")
-					if err != nil {
-						return
+					var s int64
+					buf := make([]byte, 32768)
+
+					for {
+						n, err := conn.Write(buf)
+						if err != nil {
+							break
+						}
+						s += int64(n)
 					}
-					s, err := io.Copy(conn, f)
 					log.Printf(
 						"TCP Blackhole Send To: %s Size: %d, Error: %v",
 						conn.RemoteAddr(), s, err,
 					)
-					f.Close()
 				}()
 
 				n, err := io.Copy(io.Discard, conn)
