@@ -9,7 +9,48 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
+
+func relay(endpoint string, l net.Listener, dialer func() net.Conn) {
+	if endpoint == "" {
+		log.Fatal("no endpoint")
+	}
+	log.Println("TCP Relay Start: ", l.Addr())
+
+	go func() {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+
+			go func(conn net.Conn) {
+				defer conn.Close()
+
+				remote := dialer()
+				defer remote.Close()
+
+				errCh := make(chan error)
+				go func() {
+					_, err := io.Copy(remote, conn)
+					remote.SetReadDeadline(time.Now().Add(5 * time.Second))
+					errCh <- err
+				}()
+
+				n, err := io.Copy(conn, remote)
+				conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+
+				err1 := <-errCh
+
+				log.Printf(
+					"TCP Relay From: %s To: %s Transferred: %d, Err(remote => local): %v Err(local => remote): %v",
+					conn.LocalAddr(), endpoint, n, err, err1,
+				)
+			}(c)
+		}
+	}()
+}
 
 func echo(l net.Listener) {
 	log.Println("TCP Echo Start: ", l.Addr())
@@ -80,14 +121,30 @@ func listenerConfig(mptcp bool) *net.ListenConfig {
 	return &cfg
 }
 
+func dial(mptcp bool, endpoint string) net.Conn {
+	var cfg net.Dialer
+	if mptcp {
+		cfg.SetMultipathTCP(true)
+	}
+
+	remote, err := cfg.Dial("tcp", endpoint)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return remote
+}
+
 func main() {
 	var port string
 	var addr string
 	var mode string
+	var endpoint string
 	var mptcp bool
 	flag.StringVar(&addr, "addr", "127.0.0.1", "Blackhole TCP Address")
 	flag.StringVar(&port, "port", "9999", "Blackhole TCP Port")
 	flag.StringVar(&mode, "mode", "blackhole", "Blackhole for Blackhole Server, echo for Echo Server")
+	flag.StringVar(&endpoint, "r", "", "Endpoint for relay mode")
 	flag.BoolVar(&mptcp, "mptcp", false, "Enable mptcp")
 	flag.Parse()
 
@@ -102,6 +159,10 @@ func main() {
 		blackhole(l)
 	case "echo":
 		echo(l)
+	case "relay":
+		relay(endpoint, l, func() net.Conn {
+			return dial(mptcp, endpoint)
+		})
 	}
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
