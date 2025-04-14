@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"io"
 	"log"
@@ -71,17 +72,26 @@ func blackhole(l net.Listener) {
 
 }
 
+func listenerConfig(mptcp bool) *net.ListenConfig {
+	var cfg net.ListenConfig
+	if mptcp {
+		cfg.SetMultipathTCP(true)
+	}
+	return &cfg
+}
+
 func main() {
 	var port string
 	var addr string
 	var mode string
-
+	var mptcp bool
 	flag.StringVar(&addr, "addr", "127.0.0.1", "Blackhole TCP Address")
 	flag.StringVar(&port, "port", "9999", "Blackhole TCP Port")
-	flag.StringVar(&mode, "mode", "blackhole", "blackhole for Blackhole Server, echo for Echo Server")
+	flag.StringVar(&mode, "mode", "blackhole", "Blackhole for Blackhole Server, echo for Echo Server")
+	flag.BoolVar(&mptcp, "mptcp", false, "Enable mptcp")
 	flag.Parse()
 
-	l, err := net.Listen("tcp", net.JoinHostPort(addr, port))
+	l, err := listenerConfig(mptcp).Listen(context.TODO(), "tcp", net.JoinHostPort(addr, port))
 	if err != nil {
 		log.Fatal(err)
 		return
