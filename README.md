@@ -23,7 +23,7 @@ Blackhole server blackholes all the incoming traffic, and send data filled with 
 
 
 ```shell
-tcpblackhole -mode "relay"
+tcpblackhole -mode "blackhole"
 ```
 
 ### Relay
@@ -34,5 +34,5 @@ Relay server forward all income traffic to `endpoint` and reply with its respons
 
 
 ```shell
-tcpblackhole -mode "blackhole" -endpoint 127.0.0.1:1234
+tcpblackhole -mode "relay" -endpoint 127.0.0.1:1234
 ```
