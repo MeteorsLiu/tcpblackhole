@@ -23,7 +23,7 @@ Blackhole server blackholes all the incoming traffic, and send data filled with 
 
 
 ```shell
-tcpblackhole -mode "blackhole"
+tcpblackhole -mode "relay"
 ```
 
 ### Relay
